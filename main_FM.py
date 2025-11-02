@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import ListedColormap
 from thop import clever_format, profile
 
-import model
+# import model
 import test
 from data_pre import load_dataset, sampling, get_mask_onehot, Grammar, zeropad_to_max_len, Data_Generator, get_position
 from sampling import get_coordinates_labels, get_train_test, get_train_val_test
@@ -36,67 +36,18 @@ def get_args():
     parser.add_argument("--save_path", type=str, default="models")
     parser.add_argument("--test_size",type=float, default=0.95)
     parser.add_argument("--val_size", type=float, default=0.02)
-    parser.add_argument("--start_learning_rate", type=float, default=3e-4)
+    parser.add_argument("--start_learning_rate", type=float, default=4e-4)
     parser.add_argument("--dataset", type=str, default="RV")
     parser.add_argument("--prembed", type=bool, default=True)
     parser.add_argument("--prembed_dim", type=int, default=30)
-    parser.add_argument("--data_path", type=str, default="C://Users//admin//Desktop//Hyperspectral//HIC_SNN//data//farmland")
+    parser.add_argument("--data_path", type=str, default="/home/think/spikehcd_test/farmland/")
     parser.add_argument("--repeat_term", type=int, default=1)
     parser.add_argument("--is_valid", type=bool, default=False)
     parser.add_argument("--limited_num", type=int, default=50)
-    #parser.add_argument("--limited_num", type=int, default=1875)
     parser.add_argument("--num_hidden", type=int, default=30)
     parser.add_argument("--max_len", type=int,default=9)
     args = parser.parse_args()
     return args
-
-def Draw_Classification_Map(pred, scale: float = 4.0, dpi: int = 450):
-    '''
-    Draw a classification map based on the pred array containing TP, TN, FP, FN.
-    :param pred: prediction array with values:
-                0: True Negative (TN) - Black
-                1: True Positive (TP) - White
-                2: False Positive (FP) - Red
-                3: False Negative (FN) - Green
-    :param scale: scale of image. If equals to 1, then saving-size is just the pred-size
-    :param dpi: resolution of the saved image
-    :return: null
-    '''
-    # Define custom colors for each class
-    # 0: True Negative (Black)
-    # 1: True Positive (White)
-    # 2: False Positive (Red)
-    # 3: False Negative (Green)
-    cmap = ListedColormap(['black', 'white', 'red', 'green'])
-
-    # Create a figure and axis
-    fig, ax = plt.subplots()
-
-    # Display the pred array with custom colormap
-    plt.imshow(pred, cmap=cmap, vmin=0, vmax=3)  # vmin and vmax define the range of values
-
-    # Hide axes
-    ax.set_axis_off()
-    ax.xaxis.set_visible(False)
-    ax.yaxis.set_visible(False)
-
-    # Set figure size based on pred size, scale, and dpi
-    fig.set_size_inches(pred.shape[1] * scale / dpi, pred.shape[0] * scale / dpi)
-
-    # Remove padding and margins
-    plt.gca().xaxis.set_major_locator(plt.NullLocator())
-    plt.gca().yaxis.set_major_locator(plt.NullLocator())
-    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-
-    # Save the figure
-    output_path = 'figures/classification_map_FM_ours.png'
-    foo_fig = plt.gcf()  # Get current figure
-    foo_fig.savefig(output_path, format='png', transparent=True, dpi=dpi, pad_inches=0)
-
-    # Close the figure to free memory
-    plt.close(fig)
-
-    print(f"Classification map saved to {output_path}")
 
 def GT_To_One_Hot(gt):
     GT_One_Hot = []
@@ -187,8 +138,7 @@ for repterm in range(arg.repeat_term):
         print("num train and test in class %d is %d / %d" % (
         i, (y_train == i).sum(), (y_test == i).sum()))
 
-    import model_farmland_patch_3
-
+    import model_farmland
     net = create_model(
         'QKFormer',
         pretrained=False,
@@ -222,6 +172,7 @@ for repterm in range(arg.repeat_term):
         total_train_loss = 0
         train_total_batch = 0
         val_total_batch = 0
+        val_total_batch = 0
         total_val_eq = 0
         total_val_loss = 0
 
@@ -236,11 +187,6 @@ for repterm in range(arg.repeat_term):
             train_total_batch = train_total_batch + train_batch_num
             y_batch = torch.from_numpy(y_batch.astype(np.float32)).to(device)
             optimizer.zero_grad()
-            # if i == 0 and ind == 0:
-            #     flops, params = profile(net, inputs=(X_batch1, X_batch2))
-            #     flops, params = clever_format([flops, params], "%.3f")
-            #     print("FLOPs:{}".format(flops))
-            #     print("Params:{}".format(params))
             output = net(X_batch1, X_batch2)
             loss = loss_fn(output, y_batch.long())
             loss = torch.sum(loss)
@@ -316,17 +262,13 @@ for repterm in range(arg.repeat_term):
         print(i, "    train loss: ", total_train_loss, "    train oa: ", train_oa, "val loss", total_val_loss, "    val oa: ", val_oa, "test_OA", test_OA, "test_kappa", test_kappa)
         if total_val_loss < best_loss:
             best_loss = total_val_loss
-            torch.save(net.state_dict(), "model/best_model_FM_ours.pt")
+            torch.save(net.state_dict(), "model/best_model_FM_SpikeHCD.pt")
             print('save model...')
             torch.cuda.empty_cache()
 
         if best_oa < test_OA:
-            Draw_Classification_Map(pred)
             best_oa = test_OA
             print(best_oa)
-
-    # output, test_OA, test_kappa = test.test(X1, X2, test_coords, y_test, net, arg, y)
-    # print("test oa: ", test_OA, "      test kappa: ", test_kappa)
 
 
 
